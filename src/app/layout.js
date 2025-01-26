@@ -1,5 +1,10 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { PrimeReactProvider, PrimeReactContext } from "primereact/api";
+
+import "primereact/resources/themes/lara-light-cyan/theme.css";
+import "primeicons/primeicons.css";
+import "primeflex/primeflex.css"; // Import PrimeFlex styles
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,7 +25,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
+        <PrimeReactProvider>{children}</PrimeReactProvider>
       </body>
     </html>
   );
