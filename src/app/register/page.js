@@ -8,18 +8,44 @@ import { Message } from "primereact/message";
 import { increment } from "components/components/counter/counterSlice";
 import errorHandler from "components/components/errorhandling";
 import { Toast } from "primereact/toast";
+import dotenv from "dotenv";
+import { useInterval } from "primereact/hooks";
 import { FileUpload } from "primereact/fileupload";
+import { InputOtp } from "primereact/inputotp";
+import { Dialog } from "primereact/dialog";
+import { useRouter } from "next/navigation";
+
+dotenv.config();
 
 const LoginPage = () => {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fileData, setFileData] = useState("");
-  const [error, setError] = useState({});
-  const count = useSelector((state) => state.counter.value);
+  const [visible, setVisible] = useState(false);
+  const [token, setTokens] = useState();
+  const [expiryTime, setExpiryTime] = useState(10);
+  const [otpexpired, setOtpexpired] = useState(false);
   const dispatch = useDispatch();
   const toast = useRef(null);
-  const handleSubmit = async (username, email, password) => {
+  const accept = () => {
+    <InputOtp value={token} onChange={(e) => setTokens(e.value)} integerOnly />;
+  };
+  useEffect(() => {
+    if (expiryTime === 0) {
+      setOtpexpired(!otpexpired);
+    }
+  }, [expiryTime, otpexpired]);
+  useInterval(
+    () => {
+      setExpiryTime((prevSecond) => (prevSecond === 0 ? 10 : prevSecond - 1)); //fn
+    },
+    6000, //delay (ms)
+    otpexpired //condition (when)
+  );
+
+  const handleSubmit = async (username, email, password, fileData) => {
     try {
       if (!email && !password) {
         toast.current.show({
@@ -32,7 +58,7 @@ const LoginPage = () => {
       formdata.append("username", username);
       formdata.append("email", email);
       formdata.append("password", password);
-      formdata.append("avatar", fileData);
+      formdata.append("avatar", fileData[0]);
 
       const requestOptions = {
         method: "POST",
@@ -40,20 +66,68 @@ const LoginPage = () => {
         redirect: "follow",
       };
 
-      // await fetch("http://localhost:3001/api/register", requestOptions)
-      //   .then((response) => response.json())
-      //   .then((result) => {
-      //     // errorHandler("success", result?.message);
-      //     toast.current.show({
-      //       severity: "success",
-      //       summary: "File Selected",
-      //       detail: result?.message,
-      //     });
-      //     console.log("resulttt", result);
-      //   })
-      //   .catch((error) => console.error(error));
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/register`, requestOptions)
+        .then((response) => response.json())
+        .then((result) => {
+          if (result.success === true) {
+            setVisible(true);
+            setOtpexpired(true);
+            setExpiryTime(10);
+          }
+          toast.current.show({
+            severity: "success",
+            summary: "Successfully Registered",
+            detail: result?.message,
+          });
+        })
+        .catch((error) => console.error(error));
     } catch (error) {
       console.error("Error :: handleRegister", error);
+    }
+  };
+
+  const handleVerifyOtp = async (email, token) => {
+    try {
+      const myHeaders = new Headers();
+      myHeaders.append("Content-Type", "application/json");
+      const raw = JSON.stringify({
+        email: email,
+        otp: token,
+      });
+      const requestOptions = {
+        method: "POST",
+        headers: myHeaders,
+        body: raw,
+        redirect: "follow",
+      };
+
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/verifyOtp`,
+        requestOptions
+      )
+        .then((response) => response.json())
+        .then((result) => {
+          if (result.success === true) {
+            toast.current.show({
+              severity: "success",
+              summary: "Successfully Verified",
+              detail:
+                result?.message ||
+                "Registration and Verification has been successfully done",
+            });
+            router.push("/dashboard");
+          } else {
+            toast.current.show({
+              severity: "info",
+              detail:
+                result?.message || "Please Generate the otp in order to verify",
+            });
+          }
+          router.push("/dashboard");
+        })
+        .catch((error) => console.error(error));
+    } catch (error) {
+      console.error("Error :: VerifyOtp", error);
     }
   };
 
@@ -110,9 +184,38 @@ const LoginPage = () => {
           <Button
             label="Submit"
             rounded
-            onClick={() => handleSubmit(username, email, password)}
+            onClick={() => handleSubmit(username, email, password, fileData)}
           />
         </div>
+        <Dialog
+          header="Otp"
+          visible={visible}
+          style={{ width: "50vw" }}
+          onHide={() => {
+            if (!visible) return;
+            setVisible(false);
+          }}
+        >
+          <div className="card flex justify-content-center">
+            <InputOtp
+              value={token}
+              onChange={(e) => setTokens(e.value)}
+              integerOnly
+              length={6}
+            />
+          </div>
+          &nbsp;
+          <div className="card flex justify-content-center">
+            <Button
+              label="Verify Otp"
+              onClick={() => handleVerifyOtp(email, token)}
+              rounded
+            />
+          </div>
+          <div className="card flex justify-content-center">
+            Otp will expire in {expiryTime}
+          </div>
+        </Dialog>
         <Toast ref={toast}></Toast>
         {/* <Message severity={error?.error} text={error?.text} /> */}
       </div>

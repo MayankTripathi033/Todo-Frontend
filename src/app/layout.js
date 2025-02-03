@@ -10,6 +10,9 @@ import "primeflex/primeflex.css"; // Import PrimeFlex styles
 import { store } from "./store";
 import { Provider } from "react-redux";
 
+import { NavigationEvents } from "components/components/navigation-events";
+import { Suspense } from "react";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -27,6 +30,9 @@ export default function RootLayout({ children }) {
         <Provider store={store}>
           <PrimeReactProvider>{children}</PrimeReactProvider>
         </Provider>
+        <Suspense fallback={null}>
+          <NavigationEvents />
+        </Suspense>
       </body>
     </html>
   );
